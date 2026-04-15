@@ -78,23 +78,18 @@ void Serial::open()
     throw std::runtime_error("tcgetattr failed: " + std::string(std::strerror(errno)));
   }
 
+  // Use cfmakeraw to ensure fully raw mode — no input processing, no output
+  // processing, no signal generation. This is critical for binary serial
+  // protocols like VESC where any byte transformation corrupts frames.
+  cfmakeraw(&tty);
+
   speed_t baud = baudrate_to_posix(baudrate_);
   cfsetispeed(&tty, baud);
   cfsetospeed(&tty, baud);
 
-  // 8N1, no flow control (matching the original serial library defaults)
-  tty.c_cflag &= ~PARENB;        // no parity
-  tty.c_cflag &= ~CSTOPB;        // 1 stop bit
-  tty.c_cflag &= ~CSIZE;
-  tty.c_cflag |= CS8;            // 8 data bits
+  // 8N1, no flow control
   tty.c_cflag &= ~CRTSCTS;       // no hardware flow control
   tty.c_cflag |= CLOCAL | CREAD; // enable receiver, ignore modem control
-
-  // Raw mode
-  tty.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG);
-  tty.c_iflag &= ~(IXON | IXOFF | IXANY);
-  tty.c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL);
-  tty.c_oflag &= ~OPOST;
 
   // VMIN=0, VTIME=0 — we handle timeouts ourselves via select()
   tty.c_cc[VMIN]  = 0;

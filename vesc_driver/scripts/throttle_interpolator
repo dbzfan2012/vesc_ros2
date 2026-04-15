@@ -9,24 +9,31 @@ class InterpolateThrottle(Node):
     def __init__(self):
         super().__init__("throttle_interpolator")
 
-        self.declare_parameter("car_name", "/car")
+        self.declare_parameter("car_name", "")
         car_name = self.get_parameter("car_name").get_parameter_value().string_value
+
+        # If car_name is set, use absolute paths; otherwise use relative topics
+        # (which inherit the node's namespace set by the launch file)
+        if car_name:
+            prefix = "{}/vesc/".format(car_name)
+        else:
+            prefix = ""
 
         self.declare_parameter(
             "rpm_input_topic",
-            "{}/vesc/commands/motor/unsmoothed_speed".format(car_name),
+            "{}commands/motor/unsmoothed_speed".format(prefix),
         )
         self.declare_parameter(
             "rpm_output_topic",
-            "{}/vesc/commands/motor/speed".format(car_name),
+            "{}commands/motor/speed".format(prefix),
         )
         self.declare_parameter(
             "servo_input_topic",
-            "{}/vesc/commands/servo/unsmoothed_position".format(car_name),
+            "{}commands/servo/unsmoothed_position".format(prefix),
         )
         self.declare_parameter(
             "servo_output_topic",
-            "{}/vesc/commands/servo/position".format(car_name),
+            "{}commands/servo/position".format(prefix),
         )
 
         self.rpm_input_topic = self.get_parameter("rpm_input_topic").get_parameter_value().string_value

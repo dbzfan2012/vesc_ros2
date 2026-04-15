@@ -28,20 +28,22 @@ def launch_setup(context, *args, **kwargs):
         name='ackermann_to_vesc',
         parameters=[vesc_config],
         remappings=[
-            ('ackermann_cmd', '/' + car_name + '/mux/ackermann_cmd_mux/output'),
+            ('ackermann_cmd', '/' + car_name + '/mux/output'),
             ('commands/motor/speed', 'commands/motor/unsmoothed_speed'),
             ('commands/servo/position', 'commands/servo/unsmoothed_position'),
         ],
     ))
 
     # throttle_interpolator node
+    # car_name must be empty because the node is already in the correct namespace
+    # (pushed by teleop.launch.py). Passing car_name would double the prefix.
     nodes.append(Node(
         package='vesc_driver',
         executable='throttle_interpolator',
         name='throttle_interpolator',
         parameters=[
             vesc_config,
-            {'car_name': car_name},
+            {'car_name': ''},
         ],
     ))
 

@@ -1,8 +1,8 @@
 # erpm (electrical rpm) = speed_to_erpm_gain * speed (meters / second) + speed_to_erpm_offset
 
-vesc_driver:
+/**/vesc_driver:
   ros__parameters:
-    port: /dev/vesc
+    port: /dev/ttyACM0
     duty_cycle_min: 0.0
     duty_cycle_max: 0.0
     current_min: 0.0
@@ -16,14 +16,14 @@ vesc_driver:
     servo_min: 0.15
     servo_max: 0.85
 
-ackermann_to_vesc:
+/**/ackermann_to_vesc:
   ros__parameters:
     speed_to_erpm_gain: -3500.0
     speed_to_erpm_offset: 0.0
     steering_angle_to_servo_gain: 0.95
     steering_angle_to_servo_offset: 0.55
 
-vesc_to_odom:
+/**/vesc_to_odom:
   ros__parameters:
     speed_to_erpm_gain: -3500.0
     speed_to_erpm_offset: 0.0
@@ -32,7 +32,7 @@ vesc_to_odom:
     wheelbase: 0.225
     publish_tf: false
 
-throttle_interpolator:
+/**/throttle_interpolator:
   ros__parameters:
     speed_to_erpm_gain: -3500.0
     max_acceleration: 2.5
