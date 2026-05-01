@@ -7,8 +7,8 @@
 
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/float64.hpp>
-#include <vesc_msgs/msg/vesc_state_stamped.hpp>
 #include <boost/optional.hpp>
+#include <vesc_msgs/msg/vesc_state_stamped.hpp>
 
 #include "vesc_driver/vesc_interface.h"
 #include "vesc_driver/vesc_packet.h"
@@ -20,7 +20,7 @@ class VescDriver : public rclcpp::Node
 {
 public:
 
-  VescDriver(const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
+  VescDriver();
 
 private:
   // interface to the VESC
@@ -35,10 +35,10 @@ private:
                  const boost::optional<double>& min_lower = boost::optional<double>(),
                  const boost::optional<double>& max_upper = boost::optional<double>());
     double clip(double value);
+    rclcpp::Node* node;
     std::string name;
     boost::optional<double> lower;
     boost::optional<double> upper;
-    rclcpp::Logger logger_;
   };
   CommandLimit duty_cycle_limit_;
   CommandLimit current_limit_;

@@ -5,18 +5,14 @@
 #include <cassert>
 #include <cmath>
 #include <sstream>
-#include <chrono>
-#include <functional>
 
-#define BOOST_BIND_GLOBAL_PLACEHOLDERS
 #include <boost/bind.hpp>
-#include <vesc_msgs/msg/vesc_state_stamped.hpp>
 
 namespace vesc_driver
 {
 
-VescDriver::VescDriver(const rclcpp::NodeOptions & options) :
-  rclcpp::Node("vesc_driver", options),
+VescDriver::VescDriver() :
+  Node("vesc_driver"),
   vesc_(std::string(),
         boost::bind(&VescDriver::vescPacketCallback, this, _1),
         boost::bind(&VescDriver::vescErrorCallback, this, _1)),
@@ -26,20 +22,14 @@ VescDriver::VescDriver(const rclcpp::NodeOptions & options) :
   driver_mode_(MODE_INITIALIZING), fw_version_major_(-1), fw_version_minor_(-1)
 {
   // get vesc serial port address
-  this->declare_parameter<std::string>("port", "");
-  std::string port = this->get_parameter("port").as_string();
-  if (port.empty()) {
-    RCLCPP_FATAL(get_logger(), "VESC communication port parameter required.");
-    rclcpp::shutdown();
-    return;
-  }
+  std::string port = this->declare_parameter<std::string>("port", "/dev/ttyUSB0");
 
   // attempt to connect to the serial port
   try {
     vesc_.connect(port);
   }
-  catch (SerialException e) {
-    RCLCPP_FATAL(get_logger(), "Failed to connect to the VESC, %s.", e.what());
+  catch (const SerialException & e) {
+    RCLCPP_FATAL(this->get_logger(), "Failed to connect to the VESC, %s.", e.what());
     rclcpp::shutdown();
     return;
   }
@@ -52,28 +42,16 @@ VescDriver::VescDriver(const rclcpp::NodeOptions & options) :
   servo_sensor_pub_ = this->create_publisher<std_msgs::msg::Float64>("sensors/servo_position_command", 10);
 
   // subscribe to motor and servo command topics
-  duty_cycle_sub_ = this->create_subscription<std_msgs::msg::Float64>(
-    "commands/motor/duty_cycle", 10,
-    std::bind(&VescDriver::dutyCycleCallback, this, std::placeholders::_1));
-  current_sub_ = this->create_subscription<std_msgs::msg::Float64>(
-    "commands/motor/current", 10,
-    std::bind(&VescDriver::currentCallback, this, std::placeholders::_1));
-  brake_sub_ = this->create_subscription<std_msgs::msg::Float64>(
-    "commands/motor/brake", 10,
-    std::bind(&VescDriver::brakeCallback, this, std::placeholders::_1));
-  speed_sub_ = this->create_subscription<std_msgs::msg::Float64>(
-    "commands/motor/speed", 10,
-    std::bind(&VescDriver::speedCallback, this, std::placeholders::_1));
-  position_sub_ = this->create_subscription<std_msgs::msg::Float64>(
-    "commands/motor/position", 10,
-    std::bind(&VescDriver::positionCallback, this, std::placeholders::_1));
-  servo_sub_ = this->create_subscription<std_msgs::msg::Float64>(
-    "commands/servo/position", 10,
-    std::bind(&VescDriver::servoCallback, this, std::placeholders::_1));
+  duty_cycle_sub_ = this->create_subscription<std_msgs::msg::Float64>("commands/motor/duty_cycle", 10,
+                                 std::bind(&VescDriver::dutyCycleCallback, this, std::placeholders::_1));
+  current_sub_ = this->create_subscription<std_msgs::msg::Float64>("commands/motor/current", 10, std::bind(&VescDriver::currentCallback, this, std::placeholders::_1));
+  brake_sub_ = this->create_subscription<std_msgs::msg::Float64>("commands/motor/brake", 10, std::bind(&VescDriver::brakeCallback, this, std::placeholders::_1));
+  speed_sub_ = this->create_subscription<std_msgs::msg::Float64>("commands/motor/speed", 10, std::bind(&VescDriver::speedCallback, this, std::placeholders::_1));
+  position_sub_ = this->create_subscription<std_msgs::msg::Float64>("commands/motor/position", 10, std::bind(&VescDriver::positionCallback, this, std::placeholders::_1));
+  servo_sub_ = this->create_subscription<std_msgs::msg::Float64>("commands/servo/position", 10, std::bind(&VescDriver::servoCallback, this, std::placeholders::_1));
 
   // create a 50Hz timer, used for state machine & polling VESC telemetry
-  timer_ = this->create_wall_timer(
-    std::chrono::milliseconds(20), std::bind(&VescDriver::timerCallback, this));
+  timer_ = this->create_wall_timer(std::chrono::milliseconds(20), std::bind(&VescDriver::timerCallback, this));
 }
 
   /* TODO or TO-THINKABOUT LIST
@@ -93,7 +71,7 @@ void VescDriver::timerCallback()
 {
   // VESC interface should not unexpectedly disconnect, but test for it anyway
   if (!vesc_.isConnected()) {
-    RCLCPP_FATAL(get_logger(), "Unexpectedly disconnected from serial port.");
+    RCLCPP_FATAL(this->get_logger(), "Unexpectedly disconnected from serial port.");
     timer_->cancel();
     rclcpp::shutdown();
     return;
@@ -108,7 +86,7 @@ void VescDriver::timerCallback()
     // request version number, return packet will update the internal version numbers
     vesc_.requestFWVersion();
     if (fw_version_major_ >= 0 && fw_version_minor_ >= 0) {
-      RCLCPP_INFO(get_logger(), "Connected to VESC with firmware version %d.%d",
+      RCLCPP_INFO(this->get_logger(), "Connected to VESC with firmware version %d.%d",
                fw_version_major_, fw_version_minor_);
       driver_mode_ = MODE_OPERATING;
     }
@@ -129,7 +107,7 @@ void VescDriver::vescPacketCallback(const boost::shared_ptr<VescPacket const>& p
     boost::shared_ptr<VescPacketValues const> values =
       boost::dynamic_pointer_cast<VescPacketValues const>(packet);
 
-    auto state_msg = vesc_msgs::msg::VescStateStamped();
+    vesc_msgs::msg::VescStateStamped state_msg;
     state_msg.header.stamp = this->now();
     state_msg.state.voltage_input = values->v_in();
     state_msg.state.temperature_pcb = values->temp_pcb();
@@ -158,7 +136,7 @@ void VescDriver::vescPacketCallback(const boost::shared_ptr<VescPacket const>& p
 
 void VescDriver::vescErrorCallback(const std::string& error)
 {
-  RCLCPP_ERROR(get_logger(), "%s", error.c_str());
+  RCLCPP_ERROR(this->get_logger(), "%s", error.c_str());
 }
 
 /**
@@ -168,7 +146,7 @@ void VescDriver::vescErrorCallback(const std::string& error)
  */
 void VescDriver::dutyCycleCallback(const std_msgs::msg::Float64::SharedPtr duty_cycle)
 {
-  if (driver_mode_ = MODE_OPERATING) {
+  if (driver_mode_ == MODE_OPERATING) {
     vesc_.setDutyCycle(duty_cycle_limit_.clip(duty_cycle->data));
   }
 }
@@ -180,7 +158,7 @@ void VescDriver::dutyCycleCallback(const std_msgs::msg::Float64::SharedPtr duty_
  */
 void VescDriver::currentCallback(const std_msgs::msg::Float64::SharedPtr current)
 {
-  if (driver_mode_ = MODE_OPERATING) {
+  if (driver_mode_ == MODE_OPERATING) {
     vesc_.setCurrent(current_limit_.clip(current->data));
   }
 }
@@ -192,7 +170,7 @@ void VescDriver::currentCallback(const std_msgs::msg::Float64::SharedPtr current
  */
 void VescDriver::brakeCallback(const std_msgs::msg::Float64::SharedPtr brake)
 {
-  if (driver_mode_ = MODE_OPERATING) {
+  if (driver_mode_ == MODE_OPERATING) {
     vesc_.setBrake(brake_limit_.clip(brake->data));
   }
 }
@@ -205,8 +183,11 @@ void VescDriver::brakeCallback(const std_msgs::msg::Float64::SharedPtr brake)
  */
 void VescDriver::speedCallback(const std_msgs::msg::Float64::SharedPtr speed)
 {
-  if (driver_mode_ = MODE_OPERATING) {
-    vesc_.setSpeed(speed_limit_.clip(speed->data));
+  if (driver_mode_ == MODE_OPERATING) {
+    double clipped_speed = speed_limit_.clip(speed->data);
+    if (std::abs(clipped_speed) < 900 && clipped_speed != 0.0) // min erpm
+        clipped_speed = clipped_speed < 0 ? -920 : 920;
+    vesc_.setSpeed(clipped_speed);
   }
 }
 
@@ -216,7 +197,7 @@ void VescDriver::speedCallback(const std_msgs::msg::Float64::SharedPtr speed)
  */
 void VescDriver::positionCallback(const std_msgs::msg::Float64::SharedPtr position)
 {
-  if (driver_mode_ = MODE_OPERATING) {
+  if (driver_mode_ == MODE_OPERATING) {
     // ROS uses radians but VESC seems to use degrees. Convert to degrees.
     double position_deg = position_limit_.clip(position->data) * 180.0 / M_PI;
     vesc_.setPosition(position_deg);
@@ -228,11 +209,11 @@ void VescDriver::positionCallback(const std_msgs::msg::Float64::SharedPtr positi
  */
 void VescDriver::servoCallback(const std_msgs::msg::Float64::SharedPtr servo)
 {
-  if (driver_mode_ = MODE_OPERATING) {
+  if (driver_mode_ == MODE_OPERATING) {
     double servo_clipped(servo_limit_.clip(servo->data));
     vesc_.setServo(servo_clipped);
     // publish clipped servo value as a "sensor"
-    auto servo_sensor_msg = std_msgs::msg::Float64();
+    std_msgs::msg::Float64 servo_sensor_msg;
     servo_sensor_msg.data = servo_clipped;
     servo_sensor_pub_->publish(servo_sensor_msg);
   }
@@ -241,20 +222,20 @@ void VescDriver::servoCallback(const std_msgs::msg::Float64::SharedPtr servo)
 VescDriver::CommandLimit::CommandLimit(rclcpp::Node* node, const std::string& str,
                                        const boost::optional<double>& min_lower,
                                        const boost::optional<double>& max_upper) :
-  name(str), logger_(node->get_logger())
+  node(node),
+  name(str)
 {
   // check if user's minimum value is outside of the range min_lower to max_upper
-  node->declare_parameter<double>(name + "_min", std::numeric_limits<double>::quiet_NaN());
-  double param_min = node->get_parameter(name + "_min").as_double();
-  if (!std::isnan(param_min)) {
+  double param_min;
+  if (node->get_parameter(name + "_min", param_min)) {
     if (min_lower && param_min < *min_lower) {
       lower = *min_lower;
-      RCLCPP_WARN_STREAM(logger_, "Parameter " << name << "_min (" << param_min <<
+      RCLCPP_WARN_STREAM(node->get_logger(), "Parameter " << name << "_min (" << param_min <<
                       ") is less than the feasible minimum (" << *min_lower << ").");
     }
     else if (max_upper && param_min > *max_upper) {
       lower = *max_upper;
-      RCLCPP_WARN_STREAM(logger_, "Parameter " << name << "_min (" << param_min <<
+      RCLCPP_WARN_STREAM(node->get_logger(), "Parameter " << name << "_min (" << param_min <<
                       ") is greater than the feasible maximum (" << *max_upper << ").");
     }
     else {
@@ -266,17 +247,16 @@ VescDriver::CommandLimit::CommandLimit(rclcpp::Node* node, const std::string& st
   }
 
   // check if the uers' maximum value is outside of the range min_lower to max_upper
-  node->declare_parameter<double>(name + "_max", std::numeric_limits<double>::quiet_NaN());
-  double param_max = node->get_parameter(name + "_max").as_double();
-  if (!std::isnan(param_max)) {
+  double param_max;
+  if (node->get_parameter(name + "_max", param_max)) {
     if (min_lower && param_max < *min_lower) {
       upper = *min_lower;
-      RCLCPP_WARN_STREAM(logger_, "Parameter " << name << "_max (" << param_max <<
+      RCLCPP_WARN_STREAM(node->get_logger(), "Parameter " << name << "_max (" << param_max <<
                       ") is less than the feasible minimum (" << *min_lower << ").");
     }
     else if (max_upper && param_max > *max_upper) {
       upper = *max_upper;
-      RCLCPP_WARN_STREAM(logger_, "Parameter " << name << "_max (" << param_max <<
+      RCLCPP_WARN_STREAM(node->get_logger(), "Parameter " << name << "_max (" << param_max <<
                       ") is greater than the feasible maximum (" << *max_upper << ").");
     }
     else {
@@ -289,7 +269,7 @@ VescDriver::CommandLimit::CommandLimit(rclcpp::Node* node, const std::string& st
 
   // check for min > max
   if (upper && lower && *lower > *upper) {
-    RCLCPP_WARN_STREAM(logger_, "Parameter " << name << "_max (" << *upper
+    RCLCPP_WARN_STREAM(node->get_logger(), "Parameter " << name << "_max (" << *upper
                     << ") is less than parameter " << name << "_min (" << *lower << ").");
     double temp(*lower);
     lower = *upper;
@@ -300,18 +280,18 @@ VescDriver::CommandLimit::CommandLimit(rclcpp::Node* node, const std::string& st
   oss << "  " << name << " limit: ";
   if (lower) oss << *lower << " "; else oss << "(none) ";
   if (upper) oss << *upper; else oss << "(none)";
-  RCLCPP_DEBUG_STREAM(logger_, oss.str());
+  RCLCPP_DEBUG_STREAM(node->get_logger(), oss.str());
 }
 
 double VescDriver::CommandLimit::clip(double value)
 {
   if (lower && value < lower) {
-    RCLCPP_INFO(logger_, "%s command value (%f) below minimum limit (%f), clipping.",
+    RCLCPP_INFO_THROTTLE(node->get_logger(), *node->get_clock(), 10000, "%s command value (%f) below minimum limit (%f), clipping.",
                       name.c_str(), value, *lower);
     return *lower;
   }
   if (upper && value > upper) {
-    RCLCPP_INFO(logger_, "%s command value (%f) above maximum limit (%f), clipping.",
+    RCLCPP_INFO_THROTTLE(node->get_logger(), *node->get_clock(), 10000, "%s command value (%f) above maximum limit (%f), clipping.",
                       name.c_str(), value, *upper);
     return *upper;
   }

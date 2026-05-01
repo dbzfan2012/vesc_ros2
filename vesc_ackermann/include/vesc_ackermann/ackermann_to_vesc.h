@@ -3,9 +3,10 @@
 #ifndef VESC_ACKERMANN_ACKERMANN_TO_VESC_H_
 #define VESC_ACKERMANN_ACKERMANN_TO_VESC_H_
 
+#include <std_msgs/msg/float64.hpp>
+
 #include <rclcpp/rclcpp.hpp>
 #include <ackermann_msgs/msg/ackermann_drive_stamped.hpp>
-#include <std_msgs/msg/float64.hpp>
 
 namespace vesc_ackermann
 {
@@ -14,7 +15,7 @@ class AckermannToVesc : public rclcpp::Node
 {
 public:
 
-  AckermannToVesc(const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
+  AckermannToVesc();
 
 private:
   // ROS parameters

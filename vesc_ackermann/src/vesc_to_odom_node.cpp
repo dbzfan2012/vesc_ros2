@@ -8,5 +8,6 @@ int main(int argc, char** argv)
   auto node = std::make_shared<vesc_ackermann::VescToOdom>();
   rclcpp::spin(node);
   rclcpp::shutdown();
+
   return 0;
 }

@@ -3,11 +3,12 @@
 #ifndef VESC_ACKERMANN_VESC_TO_ODOM_H_
 #define VESC_ACKERMANN_VESC_TO_ODOM_H_
 
-#include <rclcpp/rclcpp.hpp>
-#include <vesc_msgs/msg/vesc_state_stamped.hpp>
-#include <std_msgs/msg/float64.hpp>
 #include <nav_msgs/msg/odometry.hpp>
+#include <std_msgs/msg/float64.hpp>
+
+#include <rclcpp/rclcpp.hpp>
 #include <tf2_ros/transform_broadcaster.h>
+#include <vesc_msgs/msg/vesc_state_stamped.hpp>
 
 namespace vesc_ackermann
 {
@@ -16,7 +17,7 @@ class VescToOdom : public rclcpp::Node
 {
 public:
 
-  VescToOdom(const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
+  VescToOdom();
 
 private:
   // ROS parameters
@@ -39,7 +40,7 @@ private:
   rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub_;
   rclcpp::Subscription<vesc_msgs::msg::VescStateStamped>::SharedPtr vesc_state_sub_;
   rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr servo_sub_;
-  std::unique_ptr<tf2_ros::TransformBroadcaster> tf_pub_;
+  std::shared_ptr<tf2_ros::TransformBroadcaster> tf_pub_;
 
   // ROS callbacks
   void vescStateCallback(const vesc_msgs::msg::VescStateStamped::SharedPtr state);

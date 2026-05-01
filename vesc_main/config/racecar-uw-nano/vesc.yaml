@@ -1,4 +1,44 @@
-# erpm (electrical rpm) = speed_to_erpm_gain * speed (meters / second) + speed_to_erpm_offset
+/**/ackermann_to_vesc:
+  ros__parameters:
+    speed_to_erpm_gain: -3500.0
+    speed_to_erpm_offset: 0.0
+    tachometer_ticks_to_meters_gain: 0.00225
+    steering_angle_to_servo_gain: 0.8
+    steering_angle_to_servo_offset: 0.5
+    chassis_length: 0.3
+    wheelbase: 0.29
+
+/**/throttle_interpolator:
+  ros__parameters:
+    max_servo_speed: 3.2
+    servo_smoother_rate: 75.0
+    max_acceleration: 2.5
+    throttle_smoother_rate: 75.0
+    speed_to_erpm_gain: -3500.0
+    steering_angle_to_servo_gain: 0.8
+    steering_angle_to_servo_offset: 0.5
+    speed_min: -3250
+    speed_max: 3250
+    servo_min: 0.15
+    servo_max: 0.85
+
+/**/vesc_to_odom:
+  ros__parameters:
+    speed_to_erpm_gain: -3500.0
+    speed_to_erpm_offset: 0.0
+    steering_angle_to_servo_gain: 0.8
+    steering_angle_to_servo_offset: 0.5
+    wheelbase: 0.29
+    publish_tf: false
+
+/**/racecar_state:
+  ros__parameters:
+    vesc.speed_to_erpm_gain: -3500.0
+    vesc.speed_to_erpm_offset: 0.0
+    vesc.steering_angle_to_servo_gain: 0.8
+    vesc.steering_angle_to_servo_offset: 0.5
+    vesc.chassis_length: 0.3
+    vesc.wheelbase: 0.29
 
 /**/vesc_driver:
   ros__parameters:
@@ -9,39 +49,10 @@
     current_max: 20.0
     brake_min: -20000.0
     brake_max: 200000.0
-    speed_min: -3250.0
-    speed_max: 3250.0
+    speed_min: -3250
+    speed_max: 3250
     position_min: 0.0
     position_max: 0.0
     servo_min: 0.15
     servo_max: 0.85
-
-/**/ackermann_to_vesc:
-  ros__parameters:
-    speed_to_erpm_gain: -3500.0
-    speed_to_erpm_offset: 0.0
-    steering_angle_to_servo_gain: 0.95
-    steering_angle_to_servo_offset: 0.55
-
-/**/vesc_to_odom:
-  ros__parameters:
-    speed_to_erpm_gain: -3500.0
-    speed_to_erpm_offset: 0.0
-    steering_angle_to_servo_gain: 0.95
-    steering_angle_to_servo_offset: 0.55
-    wheelbase: 0.225
-    publish_tf: false
-
-/**/throttle_interpolator:
-  ros__parameters:
-    speed_to_erpm_gain: -3500.0
-    max_acceleration: 2.5
-    speed_max: 3250.0
-    speed_min: -3250.0
-    throttle_smoother_rate: 75.0
-    max_servo_speed: 3.2
-    steering_angle_to_servo_gain: 0.95
-    servo_smoother_rate: 75.0
-    servo_max: 0.85
-    servo_min: 0.15
-    steering_angle_to_servo_offset: 0.55
+    invert_servo: true

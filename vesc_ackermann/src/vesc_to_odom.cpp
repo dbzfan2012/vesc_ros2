@@ -3,68 +3,43 @@
 #include "vesc_ackermann/vesc_to_odom.h"
 
 #include <cmath>
-#include <functional>
 
+#include <nav_msgs/msg/odometry.hpp>
 #include <geometry_msgs/msg/transform_stamped.hpp>
 
 namespace vesc_ackermann
 {
 
-VescToOdom::VescToOdom(const rclcpp::NodeOptions & options) :
-  rclcpp::Node("vesc_to_odom", options),
+VescToOdom::VescToOdom() :
+  Node("vesc_to_odom"),
   odom_frame_("odom"), base_frame_("base_link"),
   use_servo_cmd_(true), publish_tf_(false), x_(0.0), y_(0.0), yaw_(0.0)
 {
   // get ROS parameters
-  this->declare_parameter<std::string>("odom_frame", odom_frame_);
-  this->declare_parameter<std::string>("base_frame", base_frame_);
-  this->declare_parameter<bool>("use_servo_cmd_to_calc_angular_velocity", use_servo_cmd_);
-  this->declare_parameter<double>("speed_to_erpm_gain", 0.0);
-  this->declare_parameter<double>("speed_to_erpm_offset", 0.0);
-  this->declare_parameter<double>("steering_angle_to_servo_gain", 0.0);
-  this->declare_parameter<double>("steering_angle_to_servo_offset", 0.0);
-  this->declare_parameter<double>("wheelbase", 0.0);
-  this->declare_parameter<bool>("publish_tf", publish_tf_);
-
-  odom_frame_ = this->get_parameter("odom_frame").as_string();
-  base_frame_ = this->get_parameter("base_frame").as_string();
-  use_servo_cmd_ = this->get_parameter("use_servo_cmd_to_calc_angular_velocity").as_bool();
-  speed_to_erpm_gain_ = this->get_parameter("speed_to_erpm_gain").as_double();
-  speed_to_erpm_offset_ = this->get_parameter("speed_to_erpm_offset").as_double();
-  publish_tf_ = this->get_parameter("publish_tf").as_bool();
-
-  if (speed_to_erpm_gain_ == 0.0) {
-    RCLCPP_FATAL(get_logger(), "VescToOdom: Parameter speed_to_erpm_gain is required.");
-  }
-
+  odom_frame_ = this->declare_parameter<std::string>("odom_frame", odom_frame_);
+  base_frame_ = this->declare_parameter<std::string>("base_frame", base_frame_);
+  use_servo_cmd_ = this->declare_parameter<bool>("use_servo_cmd_to_calc_angular_velocity", use_servo_cmd_);
+  speed_to_erpm_gain_ = this->declare_parameter<double>("speed_to_erpm_gain", 0.0);
+  speed_to_erpm_offset_ = this->declare_parameter<double>("speed_to_erpm_offset", 0.0);
   if (use_servo_cmd_) {
-    steering_to_servo_gain_ = this->get_parameter("steering_angle_to_servo_gain").as_double();
-    steering_to_servo_offset_ = this->get_parameter("steering_angle_to_servo_offset").as_double();
-    wheelbase_ = this->get_parameter("wheelbase").as_double();
-    if (steering_to_servo_gain_ == 0.0) {
-      RCLCPP_FATAL(get_logger(), "VescToOdom: Parameter steering_angle_to_servo_gain is required.");
-    }
-    if (wheelbase_ == 0.0) {
-      RCLCPP_FATAL(get_logger(), "VescToOdom: Parameter wheelbase is required.");
-    }
+    steering_to_servo_gain_ = this->declare_parameter<double>("steering_angle_to_servo_gain", 0.0);
+    steering_to_servo_offset_ = this->declare_parameter<double>("steering_angle_to_servo_offset", 0.0);
+    wheelbase_ = this->declare_parameter<double>("wheelbase", 0.0);
   }
+  publish_tf_ = this->declare_parameter<bool>("publish_tf", publish_tf_);
 
   // create odom publisher
   odom_pub_ = this->create_publisher<nav_msgs::msg::Odometry>("odom", 10);
 
   // create tf broadcaster
   if (publish_tf_) {
-    tf_pub_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
+    tf_pub_ = std::make_shared<tf2_ros::TransformBroadcaster>(this);
   }
 
   // subscribe to vesc state and. optionally, servo command
-  vesc_state_sub_ = this->create_subscription<vesc_msgs::msg::VescStateStamped>(
-    "sensors/core", 10,
-    std::bind(&VescToOdom::vescStateCallback, this, std::placeholders::_1));
+  vesc_state_sub_ = this->create_subscription<vesc_msgs::msg::VescStateStamped>("sensors/core", 10, std::bind(&VescToOdom::vescStateCallback, this, std::placeholders::_1));
   if (use_servo_cmd_) {
-    servo_sub_ = this->create_subscription<std_msgs::msg::Float64>(
-      "sensors/servo_position_command", 10,
-      std::bind(&VescToOdom::servoCmdCallback, this, std::placeholders::_1));
+    servo_sub_ = this->create_subscription<std_msgs::msg::Float64>("sensors/servo_position_command", 10, std::bind(&VescToOdom::servoCmdCallback, this, std::placeholders::_1));
   }
 }
 
@@ -88,7 +63,9 @@ void VescToOdom::vescStateCallback(const vesc_msgs::msg::VescStateStamped::Share
     last_state_ = state;
 
   // calc elapsed time
-  rclcpp::Duration dt = rclcpp::Time(state->header.stamp) - rclcpp::Time(last_state_->header.stamp);
+  const rclcpp::Time current_stamp(state->header.stamp);
+  const rclcpp::Time last_stamp(last_state_->header.stamp);
+  const rclcpp::Duration dt = current_stamp - last_stamp;
 
   /** @todo could probably do better propigating odometry, e.g. trapezoidal integration */
 
@@ -104,7 +81,7 @@ void VescToOdom::vescStateCallback(const vesc_msgs::msg::VescStateStamped::Share
   last_state_ = state;
 
   // publish odometry message
-  auto odom = nav_msgs::msg::Odometry();
+  nav_msgs::msg::Odometry odom;
   odom.header.frame_id = odom_frame_;
   odom.header.stamp = state->header.stamp;
   odom.child_frame_id = base_frame_;
