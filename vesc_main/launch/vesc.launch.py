@@ -3,6 +3,7 @@ import launch
 import launch_ros
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
+from launch.conditions import IfCondition, UnlessCondition
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.substitutions import FindPackageShare
 from launch_ros.actions import Node
@@ -12,6 +13,7 @@ def generate_launch_description():
     racecar_version = LaunchConfiguration('racecar_version')
     vesc_config = LaunchConfiguration('vesc_config')
     car_name = LaunchConfiguration('car_name')
+    fake_vesc = LaunchConfiguration('fake_vesc')
 
     return LaunchDescription([
         DeclareLaunchArgument(
@@ -32,6 +34,11 @@ def generate_launch_description():
             'car_name',
             default_value='car',
             description='Name of the car'
+        ),
+        DeclareLaunchArgument(
+            'fake_vesc',
+            default_value='false',
+            description='Use mushr_sim fake_vesc_driver (sim). Set false to use real vesc_driver hardware.'
         ),
 
         # Note: ROS2 doesn't have rosparam equivalent in launch, parameters are loaded in nodes
@@ -56,10 +63,18 @@ def generate_launch_description():
         ),
 
         Node(
+            package='mushr_sim',
+            executable='fake_vesc_driver',
+            name='vesc_driver',
+            condition=IfCondition(fake_vesc)
+        ),
+
+        Node(
             package='vesc_driver',
             executable='vesc_driver_node',
             name='vesc_driver',
-            parameters=[vesc_config]
+            parameters=[vesc_config],
+            condition=UnlessCondition(fake_vesc)
         ),
 
         Node(
